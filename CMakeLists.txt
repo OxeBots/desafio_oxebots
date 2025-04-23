@@ -4,7 +4,7 @@ project(desafio_oxebots)
 find_package(ament_cmake REQUIRED)
 find_package(ros_gz REQUIRED)
 
-install(DIRECTORY launch models urdf worlds config
+install(DIRECTORY launch models worlds config
   DESTINATION share/${PROJECT_NAME}
 )
 

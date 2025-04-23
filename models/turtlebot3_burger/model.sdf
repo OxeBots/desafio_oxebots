@@ -130,17 +130,19 @@
               <length>${wheel_width}</length>
             </cylinder>
           </geometry>
-          <friction>
-            <ode>
-              <mu>1.0</mu>
-              <mu2>1.0</mu2>
-            </ode>
-            <bullet>
-              <friction>1.0</friction>
-              <friction2>1.0</friction2>
-              <rolling_friction>0.1</rolling_friction>
-            </bullet>
-          </friction>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+              </ode>
+              <bullet>
+                <friction>1.0</friction>
+                <friction2>1.0</friction2>
+                <rolling_friction>0.1</rolling_friction>
+              </bullet>
+            </friction>
+          </surface>
         </collision>
 
         <xacro:cylinder_inertia m="0.25" r="${wheel_radius}" h="${wheel_width}" />
@@ -245,7 +247,7 @@
         <update_rate>10</update_rate>
         <visualize>true</visualize>
         <topic>/imu</topic>
-        <gz_frame_id>imu_link</gz_frame_id>
+        <frame_id>imu_link</frame_id>
         <imu>
           <angular_velocity>
             <x>
@@ -377,7 +379,7 @@
         <visualize>true</visualize>
         <update_rate>10</update_rate>
         <topic>/scan</topic>
-        <gz_frame_id>lidar_link</gz_frame_id>
+        <frame_id>lidar_link</frame_id>
         <ray>
           <scan>
             <horizontal>
