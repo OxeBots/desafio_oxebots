@@ -1,36 +1,70 @@
-<?xml version="1.0" ?>
-<sdf version="1.5">
-  <model name="turtlebot3_burger">
-    <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
+<?xml version="1.0"?>
+<sdf version="1.8" xmlns:xacro="http://ros.org/wiki/xacro">
+  <model name='turtlebot3_burger' canonical_link='base_link'>
 
-    <link name="base_footprint"/>
+    <!-- Define robot constants -->
+    <xacro:property name="base_width" value="0.14" />
+    <xacro:property name="base_length" value="0.14" />
+    <xacro:property name="base_height" value="0.14" />
 
-    <link name="base_link">
+    <xacro:property name="wheel_radius" value="0.033" />
+    <xacro:property name="wheel_width" value="0.018" />
+    <xacro:property name="wheel_ygap" value="0.010" />
+    <xacro:property name="wheel_zoff" value="0.05" />
+    <xacro:property name="wheel_xoff" value="-0.02" />
 
+    <xacro:property name="caster_xoff" value="-0.04" />
+
+    <!-- Define some commonly used intertial properties  -->
+    <xacro:macro name="box_inertia" params="m w h d">
       <inertial>
-        <pose>-0.032 0 0.070 0 0 0</pose>
+        <pose>0 0 0 ${pi/2} 0 ${pi/2}</pose>
+        <mass>${m}</mass>
         <inertia>
-          <ixx>7.2397393e-01</ixx>
-          <ixy>4.686399e-10</ixy>
-          <ixz>-1.09525703e-08</ixz>
-          <iyy>7.2397393e-01</iyy>
-          <iyz>2.8582649e-09</iyz>
-          <izz>6.53050163e-01</izz>
+          <ixx>${(m/12) * (h*h + d*d)}</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>${(m/12) * (w*w + d*d)}</iyy>
+          <iyz>0.0</iyz>
+          <izz>${(m/12) * (w*w + h*h)}</izz>
         </inertia>
-        <mass>8.2573504e-01</mass>
       </inertial>
+    </xacro:macro>
 
-      <collision name="base_collision">
-        <pose>-0.032 0 0.070 0 0 0</pose>
-        <geometry>
-          <box>
-            <size>0.140 0.140 0.140</size>
-          </box>
-        </geometry>
-      </collision>
+    <xacro:macro name="cylinder_inertia" params="m r h">
+      <inertial>
+        <pose>0 0 0 ${pi/2} 0 0</pose>
+        <mass>${m}</mass>
+        <inertia>
+          <ixx>${(m/12) * (3*r*r + h*h)}</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>${(m/12) * (3*r*r + h*h)}</iyy>
+          <iyz>0.0</iyz>
+          <izz>${(m/2) * (r*r)}</izz>
+        </inertia>
+      </inertial>
+    </xacro:macro>
 
-      <visual name="base_visual">
-        <pose>-0.032 0 0 0 0 0</pose>
+
+    <xacro:macro name="sphere_inertia" params="m r">
+      <inertial>
+        <mass>${m}</mass>
+        <inertia>
+          <ixx>${(2/5) * m * (r*r)}</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>${(2/5) * m * (r*r)}</iyy>
+          <iyz>0.0</iyz>
+          <izz>${(2/5) * m * (r*r)}</izz>
+        </inertia>
+      </inertial>
+    </xacro:macro>
+
+    <!-- Robot Base -->
+    <link name='base_link'>
+      <must_be_base_link>true</must_be_base_link>
+      <visual name="base_link_visual">
         <geometry>
           <mesh>
             <uri>model://turtlebot3_burger/meshes/burger_base.stl</uri>
@@ -38,36 +72,204 @@
           </mesh>
         </geometry>
         <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Gray</name>
-          </script>
+          <ambient>0.5 0.5 0.5 1</ambient>
+          <diffuse>0.5 0.5 0.5 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
         </material>
       </visual>
+
+      <collision name="base_link_collision">
+        <geometry>
+          <box>
+            <size>
+              ${base_length} ${base_width} ${base_height}
+            </size>
+          </box>
+        </geometry>
+      </collision>
     </link>
 
-    <link name="imu_link">
-      <sensor name="tb3_imu" type="imu">
+    <!-- Robot Footprint -->
+    <link name='base_footprint'>
+      <pose relative_to="base_joint" />
+      <xacro:box_inertia m="2" w="${base_width}" d="${base_length}" h="${base_height}" />
+    </link>
+
+    <joint name='base_joint' type='fixed'>
+      <parent>base_link</parent>
+      <child>base_footprint</child>
+      <pose relative_to="base_link">0.0 0.0 ${-(wheel_radius+wheel_zoff)} 0 0 0</pose>
+    </joint>
+
+
+    <!-- Wheels -->
+    <xacro:macro name="wheel" params="prefix x_reflect y_reflect">
+      <link name="${prefix}_link">
+        <pose relative_to="${prefix}_joint" />
+
+        <visual name="${prefix}_link_visual">
+          <pose relative_to="${prefix}_link">0 0 0 ${pi/2} 0 0</pose>
+          <geometry>
+            <mesh>
+              <uri>model://turtlebot3_burger/meshes/left_tire.stl</uri>
+              <scale>0.001 0.001 0.001</scale>
+            </mesh>
+          </geometry>
+          <material>
+            <ambient>0.1 0.1 0.1 1</ambient>
+            <diffuse>0.1 0.1 0.1 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+          </material>
+        </visual>
+
+        <collision name="${prefix}_link_collision">
+          <pose relative_to="${prefix}_link">0 0 0 ${pi/2} 0 0</pose>
+          <geometry>
+            <cylinder>
+              <radius>${wheel_radius}</radius>
+              <length>${wheel_width}</length>
+            </cylinder>
+          </geometry>
+          <friction>
+            <ode>
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+            </ode>
+            <bullet>
+              <friction>1.0</friction>
+              <friction2>1.0</friction2>
+              <rolling_friction>0.1</rolling_friction>
+            </bullet>
+          </friction>
+        </collision>
+
+        <xacro:cylinder_inertia m="0.25" r="${wheel_radius}" h="${wheel_width}" />
+      </link>
+
+      <joint name="${prefix}_joint" type="revolute">
+        <parent>base_link</parent>
+        <child>${prefix}_link</child>
+        <pose relative_to="base_link">${x_reflect*wheel_xoff} ${y_reflect*(base_width/2+wheel_ygap)}
+          ${-wheel_zoff} 0 0 0</pose>
+        <axis>
+          <xyz>0 1 0</xyz>
+          <limit>
+            <lower>-inf</lower>
+            <upper>inf</upper>
+          </limit>
+        </axis>
+      </joint>
+    </xacro:macro>
+
+    <xacro:wheel prefix="drivewhl_l" x_reflect="-1" y_reflect="1" />
+    <xacro:wheel prefix="drivewhl_r" x_reflect="-1" y_reflect="-1" />
+
+    <link name="caster">
+      <pose relative_to="caster_joint" />
+
+      <visual name="caster_visual">
+        <geometry>
+          <sphere>
+            <radius>${(wheel_radius+wheel_zoff-(base_height/2))}</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>0.1 0.1 0.1 1</ambient>
+          <diffuse>0.1 0.1 0.1 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+
+      <collision name="caster_collision">
+        <geometry>
+          <sphere>
+            <radius>${(wheel_radius+wheel_zoff-(base_height/2))}</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.001</mu>
+              <mu2>0.001</mu2>
+            </ode>
+            <bullet>
+              <friction>0.1</friction>
+              <friction2>0.1</friction2>
+              <rolling_friction>0.01</rolling_friction>
+            </bullet>
+          </friction>
+        </surface>
+      </collision>
+
+      <xacro:sphere_inertia m="0.25" r="${(wheel_radius+wheel_zoff-(base_height/5))}" />
+    </link>
+
+    <joint name="caster_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>caster</child>
+      <pose relative_to="base_link">${caster_xoff} 0.0 ${-(base_height/2)} 0 0 0</pose>
+    </joint>
+
+    <joint name='imu_joint' type='fixed'>
+      <parent>base_link</parent>
+      <child>imu_link</child>
+      <pose relative_to="base_link">0.0 0.0 0.01 0 0 0</pose>
+    </joint>
+
+    <link name='imu_link'>
+      <pose relative_to="imu_joint" />
+      <visual name="imu_link_visual">
+        <geometry>
+          <box>
+            <size>
+              0.02 0.02 0.02
+            </size>
+          </box>
+        </geometry>
+      </visual>
+
+      <collision name="imu_link_collision">
+        <geometry>
+          <box>
+            <size>
+              0.02 0.02 0.02
+            </size>
+          </box>
+        </geometry>
+      </collision>
+
+      <xacro:box_inertia m="0.02" w="0.02" d="0.02" h="0.02" />
+
+      <sensor name="imu_sensor" type="imu">
         <always_on>true</always_on>
-        <update_rate>200</update_rate>
+        <update_rate>10</update_rate>
+        <visualize>true</visualize>
+        <topic>/imu</topic>
+        <gz_frame_id>imu_link</gz_frame_id>
         <imu>
           <angular_velocity>
             <x>
               <noise type="gaussian">
                 <mean>0.0</mean>
                 <stddev>2e-4</stddev>
+                <bias_mean>0.0000075</bias_mean>
+                <bias_stddev>0.0000008</bias_stddev>
               </noise>
             </x>
             <y>
               <noise type="gaussian">
                 <mean>0.0</mean>
                 <stddev>2e-4</stddev>
+                <bias_mean>0.0000075</bias_mean>
+                <bias_stddev>0.0000008</bias_stddev>
               </noise>
             </y>
             <z>
               <noise type="gaussian">
                 <mean>0.0</mean>
                 <stddev>2e-4</stddev>
+                <bias_mean>0.0000075</bias_mean>
+                <bias_stddev>0.0000008</bias_stddev>
               </noise>
             </z>
           </angular_velocity>
@@ -76,47 +278,90 @@
               <noise type="gaussian">
                 <mean>0.0</mean>
                 <stddev>1.7e-2</stddev>
+                <bias_mean>0.1</bias_mean>
+                <bias_stddev>0.001</bias_stddev>
               </noise>
             </x>
             <y>
               <noise type="gaussian">
                 <mean>0.0</mean>
                 <stddev>1.7e-2</stddev>
+                <bias_mean>0.1</bias_mean>
+                <bias_stddev>0.001</bias_stddev>
               </noise>
             </y>
             <z>
               <noise type="gaussian">
                 <mean>0.0</mean>
                 <stddev>1.7e-2</stddev>
+                <bias_mean>0.1</bias_mean>
+                <bias_stddev>0.001</bias_stddev>
               </noise>
             </z>
           </linear_acceleration>
         </imu>
-        <plugin name="turtlebot3_imu" filename="libgazebo_ros_imu_sensor.so">
-          <ros>
-            <!-- <namespace>/tb3</namespace> -->
-            <remapping>~/out:=imu</remapping>
-          </ros>
-        </plugin>
       </sensor>
     </link>
 
-    <link name="base_scan">
-      <inertial>
-        <pose>-0.020 0 0.161 0 0 0</pose>
-        <inertia>
-          <ixx>0.001</ixx>
-          <ixy>0.000</ixy>
-          <ixz>0.000</ixz>
-          <iyy>0.001</iyy>
-          <iyz>0.000</iyz>
-          <izz>0.001</izz>
-        </inertia>
-        <mass>0.114</mass>
-      </inertial>
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <!-- wheels -->
+      <left_joint>drivewhl_l_joint</left_joint>
+      <right_joint>drivewhl_r_joint</right_joint>
 
-      <collision name="lidar_sensor_collision">
-        <pose>-0.020 0 0.161 0 0 0</pose>
+      <!-- kinematics -->
+      <wheel_separation>${base_width + wheel_ygap*2 + wheel_width}</wheel_separation>
+      <wheel_radius>${wheel_radius}</wheel_radius>
+
+      <!-- limits -->
+      <max_linear_acceleration>0.1</max_linear_acceleration>
+
+      <!-- input -->
+      <topic>/cmd_vel</topic>
+
+      <!-- output -->
+      <odom_topic>diff/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-joint-state-publisher-system"
+      name="gz::sim::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+    </plugin>
+
+    <plugin
+      filename="gz-sim-odometry-publisher-system"
+      name="gz::sim::systems::OdometryPublisher">
+      <odom_publish_frequency>10</odom_publish_frequency>
+      <odom_topic>/odom</odom_topic>
+    </plugin>
+
+    <joint name="lidar_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>lidar_link</child>
+      <pose relative_to="base_link">-0.020 0 0.091 0 0 0</pose>
+    </joint>
+
+    <link name='lidar_link'>
+      <pose relative_to="lidar_joint" />
+      <visual name="lidar_link_visual">
+        <geometry>
+          <mesh>
+            <uri>model://turtlebot3_burger/meshes/lds.stl</uri>
+            <scale>0.001 0.001 0.001</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>0.2 0.2 0.2 1</ambient>
+          <diffuse>0.2 0.2 0.2 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+        </material>
+      </visual>
+
+      <collision name="lidar_link_collision">
         <geometry>
           <cylinder>
             <radius>0.0508</radius>
@@ -125,32 +370,19 @@
         </geometry>
       </collision>
 
-      <visual name="lidar_sensor_visual">
-        <pose>-0.032 0 0.171 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://turtlebot3_burger/meshes/lds.stl</uri>
-            <scale>0.001 0.001 0.001</scale>
-          </mesh>
-        </geometry>
-        <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/DarkGrey</name>
-          </script>
-        </material>
-      </visual>
+      <xacro:cylinder_inertia m="0.125" r="0.0508" h="0.055" />
 
-      <sensor name="hls_lfcd_lds" type="ray">
+      <sensor name="lidar" type="gpu_lidar">
         <always_on>true</always_on>
         <visualize>true</visualize>
-        <pose>-0.032 0 0.171 0 0 0</pose>
-        <update_rate>5</update_rate>
+        <update_rate>10</update_rate>
+        <topic>/scan</topic>
+        <gz_frame_id>lidar_link</gz_frame_id>
         <ray>
           <scan>
             <horizontal>
               <samples>2</samples>
-              <resolution>1.000000</resolution>
+              <resolution>1</resolution>
               <min_angle>0.000000</min_angle>
               <max_angle>1.57079633</max_angle>
             </horizontal>
@@ -166,267 +398,7 @@
             <stddev>0.01</stddev>
           </noise>
         </ray>
-        <plugin name="turtlebot3_laserscan" filename="libgazebo_ros_ray_sensor.so">
-          <ros>
-            <!-- <namespace>/tb3</namespace> -->
-            <remapping>~/out:=scan</remapping>
-          </ros>
-          <output_type>sensor_msgs/LaserScan</output_type>
-          <frame_name>base_scan</frame_name>
-        </plugin>
       </sensor>
     </link>
-
-    <link name="wheel_left_link">
-
-      <inertial>
-        <pose>0 0.08 0.023 -1.57 0 0</pose>
-        <inertia>
-          <ixx>1.8158194e-03</ixx>
-          <ixy>-9.3392e-12</ixy>
-          <ixz>1.04909e-11</ixz>
-          <iyy>3.2922126e-03</iyy>
-          <iyz>5.75694e-11</iyz>
-          <izz>1.8158194e-03</izz>
-        </inertia>
-        <mass>2.8498940e-02</mass>
-      </inertial>
-
-      <collision name="wheel_left_collision">
-        <pose>0 0.08 0.023 -1.57 0 0</pose>
-        <geometry>
-          <cylinder>
-            <radius>0.033</radius>
-            <length>0.018</length>
-          </cylinder>
-        </geometry>
-        <surface>
-          <!-- This friction pamareter don't contain reliable data!! -->
-          <friction>
-            <ode>
-              <mu>100000.0</mu>
-              <mu2>100000.0</mu2>
-              <fdir1>0 0 0</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
-            </ode>
-          </friction>
-          <contact>
-            <ode>
-              <soft_cfm>0</soft_cfm>
-              <soft_erp>0.2</soft_erp>
-              <kp>1e+5</kp>
-              <kd>1</kd>
-              <max_vel>0.01</max_vel>
-              <min_depth>0.001</min_depth>
-            </ode>
-          </contact>
-        </surface>
-      </collision>
-
-      <visual name="wheel_left_visual">
-        <pose>0 0.08 0.023 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://turtlebot3_burger/meshes/left_tire.stl</uri>
-            <scale>0.001 0.001 0.001</scale>
-          </mesh>
-        </geometry>
-        <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/FlatBlack</name>
-          </script>
-        </material>
-      </visual>
-    </link>
-
-    <link name="wheel_right_link">
-
-      <inertial>
-        <pose>0.0 -0.08 0.023 -1.57 0 0</pose>
-        <inertia>
-          <ixx>1.8158194e-03</ixx>
-          <ixy>-9.3392e-12</ixy>
-          <ixz>1.04909e-11</ixz>
-          <iyy>3.2922126e-03</iyy>
-          <iyz>5.75694e-11</iyz>
-          <izz>1.8158194e-03</izz>
-        </inertia>
-        <mass>2.8498940e-02</mass>
-      </inertial>
-
-      <collision name="wheel_right_collision">
-        <pose>0.0 -0.08 0.023 -1.57 0 0</pose>
-        <geometry>
-          <cylinder>
-            <radius>0.033</radius>
-            <length>0.018</length>
-          </cylinder>
-        </geometry>
-        <surface>
-          <!-- This friction pamareter don't contain reliable data!! -->
-          <friction>
-            <ode>
-              <mu>100000.0</mu>
-              <mu2>100000.0</mu2>
-              <fdir1>0 0 0</fdir1>
-              <slip1>0.0</slip1>
-              <slip2>0.0</slip2>
-            </ode>
-          </friction>
-          <contact>
-            <ode>
-              <soft_cfm>0</soft_cfm>
-              <soft_erp>0.2</soft_erp>
-              <kp>1e+5</kp>
-              <kd>1</kd>
-              <max_vel>0.01</max_vel>
-              <min_depth>0.001</min_depth>
-            </ode>
-          </contact>
-        </surface>
-      </collision>
-
-      <visual name="wheel_right_visual">
-        <pose>0.0 -0.08 0.023 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://turtlebot3_burger/meshes/right_tire.stl</uri>
-            <scale>0.001 0.001 0.001</scale>
-          </mesh>
-        </geometry>
-        <material>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/FlatBlack</name>
-          </script>
-        </material>
-      </visual>
-    </link>
-
-    <link name='caster_back_link'>
-      <pose>-0.081 0 -0.004 -1.57 0 0</pose>
-      <inertial>
-        <mass>0.005</mass>
-        <inertia>
-          <ixx>0.001</ixx>
-          <ixy>0.000</ixy>
-          <ixz>0.000</ixz>
-          <iyy>0.001</iyy>
-          <iyz>0.000</iyz>
-          <izz>0.001</izz>
-        </inertia>
-      </inertial>
-      <collision name='collision'>
-        <geometry>
-          <sphere>
-            <radius>0.005000</radius>
-          </sphere>
-        </geometry>
-        <surface>
-          <contact>
-            <ode>
-              <soft_cfm>0</soft_cfm>
-              <soft_erp>0.2</soft_erp>
-              <kp>1e+5</kp>
-              <kd>1</kd>
-              <max_vel>0.01</max_vel>
-              <min_depth>0.001</min_depth>
-            </ode>
-          </contact>
-        </surface>
-      </collision>
-    </link>
-
-    <joint name="base_joint" type="fixed">
-      <parent>base_footprint</parent>
-      <child>base_link</child>
-      <pose>0.0 0.0 0.010 0 0 0</pose>
-    </joint>
-
-    <joint name="wheel_left_joint" type="revolute">
-      <parent>base_link</parent>
-      <child>wheel_left_link</child>
-      <pose>0.0 0.08 0.023 -1.57 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
-
-    <joint name="wheel_right_joint" type="revolute">
-      <parent>base_link</parent>
-      <child>wheel_right_link</child>
-      <pose>0.0 -0.08 0.023 -1.57 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
-
-    <joint name='caster_back_joint' type='ball'>
-      <parent>base_link</parent>
-      <child>caster_back_link</child>
-    </joint>
-
-    <joint name="imu_joint" type="fixed">
-      <parent>base_link</parent>
-      <child>imu_link</child>
-      <pose>-0.032 0 0.068 0 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
-
-    <joint name="lidar_joint" type="fixed">
-      <parent>base_link</parent>
-      <child>base_scan</child>
-      <pose>-0.032 0 0.171 0 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
-
-    <plugin name="turtlebot3_diff_drive" filename="libgazebo_ros_diff_drive.so">
-
-      <ros>
-        <!-- <namespace>/tb3</namespace> -->
-      </ros>
-
-      <update_rate>30</update_rate>
-
-      <!-- wheels -->
-      <left_joint>wheel_left_joint</left_joint>
-      <right_joint>wheel_right_joint</right_joint>
-
-      <!-- kinematics -->
-      <wheel_separation>0.160</wheel_separation>
-      <wheel_diameter>0.066</wheel_diameter>
-
-      <!-- limits -->
-      <max_wheel_torque>20</max_wheel_torque>
-      <max_wheel_acceleration>1.0</max_wheel_acceleration>
-
-      <command_topic>cmd_vel</command_topic>
-
-      <!-- output -->
-      <publish_odom>true</publish_odom>
-      <publish_odom_tf>true</publish_odom_tf>
-      <publish_wheel_tf>false</publish_wheel_tf>
-
-      <odometry_topic>odom</odometry_topic>
-      <odometry_frame>odom</odometry_frame>
-      <robot_base_frame>base_footprint</robot_base_frame>
-
-    </plugin>
-
-    <plugin name="turtlebot3_joint_state" filename="libgazebo_ros_joint_state_publisher.so">
-      <ros>
-        <!-- <namespace>/tb3</namespace> -->
-        <remapping>~/out:=joint_states</remapping>
-      </ros>
-      <update_rate>30</update_rate>
-      <joint_name>wheel_left_joint</joint_name>
-      <joint_name>wheel_right_joint</joint_name>
-    </plugin>      
   </model>
 </sdf>
